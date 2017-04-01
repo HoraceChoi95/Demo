@@ -36,6 +36,7 @@ namespace BackStageSur
             ServiceMetadataBehavior smb = new ServiceMetadataBehavior();
             smb.HttpGetEnabled = true;
             smb.HttpGetUrl = new Uri("http://202.115.74.254:9999/cl/metadata");
+            
             host.Description.Behaviors.Add(smb);
             host.Opened += delegate { MessageBox.Show("服务已经启动！"); };
             host.Open();
@@ -139,6 +140,9 @@ namespace BackStageSur
                 dsInit.Tables.Add(dtGtSer);
                 dsInit.Tables.Add(dtGtNetbd2);
                 dsInit.Tables.Add(dtGtSrvis);
+                myconnInit.Close();
+                myconnInit.Dispose();
+                mycommGtSer.Dispose();
                 return dsInit;
             }
 
