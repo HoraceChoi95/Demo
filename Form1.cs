@@ -116,7 +116,7 @@ namespace BackStageSur
                 string s = p;
                 string sqlstrGtSrvr = "select * from sur.tb_server where tb_server.clientid='" + s + "'";
                 string sqlstrGtNetbd = "select netboardid,tb_netboard.serverid,url from tb_netboard inner join tb_server on tb_netboard.serverid=tb_server.serverid where tb_server.clientid='" + s + "'";
-                string sqlstrGtSrvis = "select serviceid,tb_service.serverid,servicetype,servicename,netboardid,port,connstring from tb_service inner join tb_server on tb_service.serverid=tb_server.serverid where tb_server.clientid='" + s + "'";
+                string sqlstrGtSrvis = "select serviceid,tb_service.serverid,servicetype,servicename,netboardid,port from tb_service inner join tb_server on tb_service.serverid=tb_server.serverid where tb_server.clientid='" + s + "'";
                 Npgsql.NpgsqlConnection myconnInit = new Npgsql.NpgsqlConnection(connstr);
                 Npgsql.NpgsqlCommand mycommGtSer = new Npgsql.NpgsqlCommand(sqlstrGtSrvr, myconnInit);
                 Npgsql.NpgsqlDataAdapter myda = new Npgsql.NpgsqlDataAdapter(sqlstrGtSrvr, myconnInit);
@@ -199,12 +199,12 @@ namespace BackStageSur
         {
             Random rm = new Random();
             int i = rm.Next(0, 100);
-            if(i>=0&&i<4)
+            if(i>=0&&i<2)
             {
                 RtT = 12000;
                 return 1;
             }
-            else if (i >= 5 && i < 19)
+            else if (i >= 2 && i < 4)
             {
                 RtT = rm.Next(230, 350);
                 return 2;
@@ -220,12 +220,12 @@ namespace BackStageSur
         {
             Random rm = new Random();
             int i = rm.Next(0, 100);
-            if (i >= 0 && i < 4)
+            if (i >= 0 && i < 2)
             {
                 RtT = 12000;
                 return 1;
             }
-            else if (i >= 5 && i < 19)
+            else if (i >= 2 && i < 4)
             {
                 RtT = rm.Next(230, 350);
                 return 2;
@@ -236,8 +236,88 @@ namespace BackStageSur
                 return 0;
             }
         }
+        public DataSet SvrDetl(int serverid,string p)
+        {
+            try
+            {
+                string s = p;
+                string sqlstrGtSrvr = "select * from sur.tb_server where tb_server.clientid='" + s + "' and tb_server.serverid="+serverid+"";
+                string sqlstrGtNetbd = "select netboardid,tb_netboard.serverid,url from tb_netboard inner join tb_server on tb_netboard.serverid=tb_server.serverid where tb_server.clientid='" + s + "' and tb_server.serverid=" + serverid + "";
+                string sqlstrGtSrvis = "select serviceid,tb_service.serverid,servicetype,servicename,netboardid,port from tb_service inner join tb_server on tb_service.serverid=tb_server.serverid where tb_server.clientid='" + s + "' and tb_server.serverid=" + serverid + "";
+                Npgsql.NpgsqlConnection myconnInit = new Npgsql.NpgsqlConnection(connstr);
+                Npgsql.NpgsqlCommand mycommGtSer = new Npgsql.NpgsqlCommand(sqlstrGtSrvr, myconnInit);
+                Npgsql.NpgsqlDataAdapter myda = new Npgsql.NpgsqlDataAdapter(sqlstrGtSrvr, myconnInit);
+                myconnInit.Open();
+                DataTable dtGtSer = new DataTable("Server");
+                DataSet dsInit = new DataSet("Intialize");
+                myda.Fill(dtGtSer);
+                mycommGtSer.CommandText = sqlstrGtNetbd;
+                myda.SelectCommand.CommandText = sqlstrGtNetbd;
+                DataTable dtGtNetbd = new DataTable("Netboard");
+                myda.Fill(dtGtNetbd);
+                DataTable dtGtNetbd2 = new DataTable("Netboard");
+                dtGtNetbd2 = ChangeColumnType(dtGtNetbd);
+                mycommGtSer.CommandText = sqlstrGtSrvis;
+                myda.SelectCommand.CommandText = sqlstrGtSrvis;
+                DataTable dtGtSrvis = new DataTable("Service");
+
+                myda.Fill(dtGtSrvis);
 
 
+                dsInit.Tables.Add(dtGtSer);
+                dsInit.Tables.Add(dtGtNetbd2);
+                dsInit.Tables.Add(dtGtSrvis);
+                myconnInit.Close();
+                myconnInit.Dispose();
+                mycommGtSer.Dispose();
+                return dsInit;
+            }
+
+            catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
+            {
+                var nerror = new WCFError("Select", ne.Message.ToString());//实例化WCFError，将错误信息传入WCFError
+                throw new FaultException<WCFError>(nerror, nerror.Message);//抛出错误
+
+            }
+            catch (TimeoutException te)//如果数据库未在侦听
+            {
+                var terror = new WCFError("Select", te.Message.ToString());//实例化WCFError，将错误信息传入WCFError
+                throw new FaultException<WCFError>(terror, terror.Message);//抛出错误
+            }
+        }
+
+        public DataSet ClientDetail(string p)
+        {
+            try
+            {
+                string s = p;
+                string sqlstrGtCD = "select * from sur.tb_client where tb_client.clientid='" + s + "'";
+                Npgsql.NpgsqlConnection myconnGtCD = new Npgsql.NpgsqlConnection(connstr);
+                Npgsql.NpgsqlCommand mycommGtSer = new Npgsql.NpgsqlCommand(sqlstrGtCD, myconnGtCD);
+                Npgsql.NpgsqlDataAdapter myda = new Npgsql.NpgsqlDataAdapter(sqlstrGtCD, myconnGtCD);
+                myconnGtCD.Open();
+                DataTable dtGtCD = new DataTable("员工");
+                DataSet dsGtCD = new DataSet("ClientDetail");
+                myda.Fill(dtGtCD);
+                dsGtCD.Tables.Add(dtGtCD);               
+                myconnGtCD.Close();
+                myconnGtCD.Dispose();
+                mycommGtSer.Dispose();
+                return dsGtCD;
+            }
+
+            catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
+            {
+                var nerror = new WCFError("Select", ne.Message.ToString());//实例化WCFError，将错误信息传入WCFError
+                throw new FaultException<WCFError>(nerror, nerror.Message);//抛出错误
+
+            }
+            catch (TimeoutException te)//如果数据库未在侦听
+            {
+                var terror = new WCFError("Select", te.Message.ToString());//实例化WCFError，将错误信息传入WCFError
+                throw new FaultException<WCFError>(terror, terror.Message);//抛出错误
+            }
+        }
         
     }
     
@@ -259,6 +339,12 @@ namespace BackStageSur
         [OperationContract]
         [FaultContract(typeof(WCFError))]//制定返回的错误为WCFError型
         int PingNtbd(int netboardid, ref long RtT);
+        [OperationContract]
+        [FaultContract(typeof(WCFError))]//制定返回的错误为WCFError型
+        DataSet SvrDetl(int serverid, string p);
+        [OperationContract]
+        [FaultContract(typeof(WCFError))]
+        DataSet ClientDetail(string p);
         }
     
 
