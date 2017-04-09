@@ -318,6 +318,39 @@ namespace BackStageSur
                 throw new FaultException<WCFError>(terror, terror.Message);//抛出错误
             }
         }
+
+        public DataSet SelErr(int serverid,string p)
+        {
+            try
+            {
+                string s = p;
+                string sqlstrSLER = "select * from sur.tb_error where tb_error.serverid=" + serverid + " and tb_error.clientid='"+p+"'";
+                Npgsql.NpgsqlConnection myconnSLER = new Npgsql.NpgsqlConnection(connstr);
+                Npgsql.NpgsqlCommand mycommGtSer = new Npgsql.NpgsqlCommand(sqlstrSLER, myconnSLER);
+                Npgsql.NpgsqlDataAdapter myda = new Npgsql.NpgsqlDataAdapter(sqlstrSLER, myconnSLER);
+                myconnSLER.Open();
+                DataTable dtSLER = new DataTable("错误");
+                DataSet dsSLER = new DataSet("Errors");
+                myda.Fill(dtSLER);
+                dsSLER.Tables.Add(dtSLER);
+                myconnSLER.Close();
+                myconnSLER.Dispose();
+                mycommGtSer.Dispose();
+                return dsSLER;
+            }
+
+            catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
+            {
+                var nerror = new WCFError("Select", ne.Message.ToString());//实例化WCFError，将错误信息传入WCFError
+                throw new FaultException<WCFError>(nerror, nerror.Message);//抛出错误
+
+            }
+            catch (TimeoutException te)//如果数据库未在侦听
+            {
+                var terror = new WCFError("Select", te.Message.ToString());//实例化WCFError，将错误信息传入WCFError
+                throw new FaultException<WCFError>(terror, terror.Message);//抛出错误
+            }
+        }
         
     }
     
@@ -345,6 +378,9 @@ namespace BackStageSur
         [OperationContract]
         [FaultContract(typeof(WCFError))]
         DataSet ClientDetail(string p);
+        [OperationContract]
+        [FaultContract(typeof(WCFError))]
+        DataSet SelErr(int serverid, string p);
         }
     
 
