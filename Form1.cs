@@ -26,7 +26,8 @@ namespace BackStageSur
         }
 
         private ServiceHost host;
-
+        static Socket server;
+        bool read = true;
         private void button1_Click(object sender, EventArgs e)
         {
 
@@ -42,6 +43,10 @@ namespace BackStageSur
             host.Open();
             this.bt_Ini.Enabled = false;
             this.bt_Stop.Enabled = true;
+            server = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            server.Bind(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 4770));//绑定端口号和IP
+            Thread t = new Thread(ReciveMsg);//开启接收消息线程
+            t.Start();
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -51,10 +56,56 @@ namespace BackStageSur
             this.host.Close();
             this.bt_Stop.Enabled = false;
             this.bt_Ini.Enabled = true;
+            read = false;
+
+        }
+
+        private void ReciveMsg()
+        {
+            while (read)
+            {
+                EndPoint point = new IPEndPoint(IPAddress.Any, 0);//用来保存发送方的ip和端口号
+                byte[] buffer = new byte[1024];
+                int length = FrmMain.server.ReceiveFrom(buffer, ref point);//接收数据报
+                string message = Encoding.UTF8.GetString(buffer, 0, length);
+                message += "\r\n";
+                this.SetText(message);
+
+            }
+
 
         }
 
 
+
+      
+        delegate void SetTextCallback(string text);
+        /// <summary>
+        /// 更新文本框内容的方法
+        /// </summary>
+        /// <param name="text"></param>
+        private void SetText(string text)
+        {
+            // InvokeRequired required compares the thread ID of the 
+            // calling thread to the thread ID of the creating thread. 
+            // If these threads are different, it returns true. 
+            if (this.textBox1.InvokeRequired)//如果调用控件的线程和创建创建控件的线程不是同一个则为True
+            {
+                while (!this.textBox1.IsHandleCreated)
+                {
+                    //解决窗体关闭时出现“访问已释放句柄“的异常
+                    if (this.textBox1.Disposing || this.textBox1.IsDisposed)
+                        return;
+                }
+                SetTextCallback d = new SetTextCallback(SetText);
+                this.textBox1.Invoke(d, new object[] { text });
+            }
+            else
+            {
+                this.textBox1.Text += text;
+            }
+        }
+        
     }
 
 
@@ -65,6 +116,11 @@ namespace BackStageSur
     public class cl : Icl
 
     {
+        #region UDP Socket发送信息服务端
+        Socket server = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        
+        EndPoint point = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 4770);
+        #endregion
 
         public const string connstr = "Server=124.161.78.133;Port=9620;Database=BackStageSur;Uid=postgres;Pwd=swjtu;";
         public int Login(string p, string pswd)//登录方法
@@ -86,13 +142,19 @@ namespace BackStageSur
                 myconnlgn.Dispose();
                 if (comp == "" || comp == null)//判断是否有对应MD5
                 {
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "试图登录，用户名密码不存在"), point);
                     return 2;
                 }
                 else if (comp == pswd)//判断相等
                 {
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "登陆成功"), point);
                     return 0;
                 }
-                else return 1;
+                else
+                {
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户密码校验失败"), point);
+                    return 1;
+                }
             }
             catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
             {
@@ -143,6 +205,7 @@ namespace BackStageSur
                 myconnInit.Close();
                 myconnInit.Dispose();
                 mycommGtSer.Dispose();
+                server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户初始化数据返回成功"), point);
                 return dsInit;
             }
 
@@ -235,7 +298,10 @@ namespace BackStageSur
                     mycommping.Parameters.Add("@serviceid", NpgsqlTypes.NpgsqlDbType.Numeric).Value = serviceid;
                     mycommping.Parameters.Add("@success", NpgsqlTypes.NpgsqlDbType.Boolean).Value = false;
                     mycommping.Parameters.Add("@time", NpgsqlTypes.NpgsqlDbType.Timestamp).Value = DateTime.Now.ToLongTimeString();
+                    
                     mycommping.ExecuteNonQuery();
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户监测" + serviceid + "服务，失败"), point);
+
                 }
                 catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
                 {
@@ -260,6 +326,7 @@ namespace BackStageSur
                     mycommping.Parameters.Add("@success", NpgsqlTypes.NpgsqlDbType.Boolean).Value = true;
                     mycommping.Parameters.Add("@time", NpgsqlTypes.NpgsqlDbType.Timestamp).Value = DateTime.Now.ToLongTimeString();
                     mycommping.ExecuteNonQuery();
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户监测" + serviceid + "服务，成功"), point);
                 }
                 catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
                 {
@@ -324,7 +391,9 @@ namespace BackStageSur
                     mycommping.Parameters.Add("@df", NpgsqlTypes.NpgsqlDbType.Boolean).Value = DF;
                     mycommping.Parameters.Add("@bfl", NpgsqlTypes.NpgsqlDbType.Integer).Value = BfL;
                     mycommping.Parameters.Add("@time", NpgsqlTypes.NpgsqlDbType.Timestamp).Value = DateTime.Now.ToLongTimeString();
+
                     mycommping.ExecuteNonQuery();
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户监测" + netboardid + "网卡，Ping失败"), point);
                 }
                 catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
                 {
@@ -370,6 +439,7 @@ namespace BackStageSur
                     mycommping.Parameters.Add("@df", NpgsqlTypes.NpgsqlDbType.Boolean).Value = false ;
                     mycommping.Parameters.Add("@bfl", NpgsqlTypes.NpgsqlDbType.Integer).Value = 32;
                     mycommping.Parameters.Add("@time", NpgsqlTypes.NpgsqlDbType.Timestamp).Value = DateTime.Now.ToLongTimeString();
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户监测" + netboardid + "网卡，往返时长过大"), point);
                     mycommping.ExecuteNonQuery();
                 }
                 catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
@@ -403,6 +473,7 @@ namespace BackStageSur
                     mycommping.Parameters.Add("@bfl", NpgsqlTypes.NpgsqlDbType.Integer).Value = 32;
                     mycommping.Parameters.Add("@time", NpgsqlTypes.NpgsqlDbType.Timestamp).Value = DateTime.Now.ToLongTimeString();
                     mycommping.ExecuteNonQuery();
+                    server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户监测" + netboardid + "网卡，数据正常"), point);
                 }
                 catch (Npgsql.NpgsqlException ne)//如果数据库连接过程中报错
                 {
@@ -452,6 +523,7 @@ namespace BackStageSur
                 myconnInit.Close();
                 myconnInit.Dispose();
                 mycommGtSer.Dispose();
+                server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户查询" + serverid + "服务器详细信息，成功"), point);
                 return dsInit;
             }
 
@@ -485,6 +557,7 @@ namespace BackStageSur
                 myconnGtCD.Close();
                 myconnGtCD.Dispose();
                 mycommGtSer.Dispose();
+                server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户查询员工详细信息，成功"), point);
                 return dsGtCD;
             }
 
@@ -525,6 +598,7 @@ namespace BackStageSur
                 myconnSLER.Close();
                 myconnSLER.Dispose();
                 mycommGtSer.Dispose();
+                server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户查询" + serverid + "服务器错误详细信息，成功"), point);
                 return dsSLER;
             }
 
@@ -564,6 +638,7 @@ namespace BackStageSur
                 myconnSLER.Close();
                 myconnSLER.Dispose();
                 mycommGtSer.Dispose();
+                server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户查询未处理错误详细信息，成功"), point);
                 return dsSLER;
             }
 
@@ -604,6 +679,7 @@ namespace BackStageSur
                 myconnSNRE.Close();
                 myconnSNRE.Dispose();
                 mycommGtSer.Dispose();
+                server.SendTo(Encoding.UTF8.GetBytes("" + p + "用户查询" + netboardid + "号网卡未处理最近" + count + "条错误详细信息，成功"), point);
                 return dsSNRE;
             }
 
