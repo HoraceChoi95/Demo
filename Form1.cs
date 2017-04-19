@@ -100,9 +100,18 @@ namespace BackStageSur
                 SetTextCallback d = new SetTextCallback(SetText);
                 this.textBox1.Invoke(d, new object[] { text });
             }
+            else if(this.textBox1.TextLength>= 2147450880)
+            {
+                this.textBox1.Text = this.textBox1.Text.Substring(32767);
+                this.textBox1.AppendText(text);
+                this.textBox1.SelectionStart = textBox1.TextLength;
+                this.textBox1.ScrollToCaret();
+            }
             else
             {
-                this.textBox1.Text += text;
+                this.textBox1.AppendText(text);
+                this.textBox1.SelectionStart = textBox1.TextLength;
+                this.textBox1.ScrollToCaret();
             }
         }
         
@@ -123,6 +132,9 @@ namespace BackStageSur
         #endregion
 
         public const string connstr = "Server=124.161.78.133;Port=9620;Database=BackStageSur;Uid=postgres;Pwd=swjtu;";
+        /// <summary>
+        /// 用于客户端账户登录
+        /// </summary>
         public int Login(string p, string pswd)//登录方法
         {
             try
@@ -171,6 +183,9 @@ namespace BackStageSur
         }
 
 
+        /// <summary>
+        /// 用于客户端登录后一次性获取所有服务器、网卡和服务的方法，p为clientid
+        /// </summary>
         public DataSet Intialize(string p)//服务器列表方法
         {
             try
@@ -223,6 +238,10 @@ namespace BackStageSur
 
 
         }
+
+        /// <summary>
+        /// 将网卡表中url字段从inet型转为string型的方法
+        /// </summary>
         public DataTable ChangeColumnType(DataTable dt)
         {
 
@@ -257,7 +276,9 @@ namespace BackStageSur
 
         }
 
-
+        /// <summary>
+        /// 服务监测方法，p为clientid
+        /// </summary>
         public int PingService(int serviceid,string p)//同步Ping方法
         {
             int svnetboardid;
@@ -341,6 +362,10 @@ namespace BackStageSur
             }
 
         }
+
+        /// <summary>
+        /// 网卡监测方法，p为clientid
+        /// </summary>
         public int PingNtbd(int netboardid, ref long RtT,string p)
         {
             int ntserverid = 0;
@@ -489,6 +514,9 @@ namespace BackStageSur
 
 
         }
+        /// <summary>
+        /// 读取特定服务器上的网卡和服务的详细信息，p为clientid
+        /// </summary>
         public DataSet SvrDetl(int serverid, string p)
         {
             try
@@ -540,6 +568,10 @@ namespace BackStageSur
             }
         }
 
+        /// <summary>
+        /// 读取某用户的员工详细信息
+        /// </summary>
+
         public DataSet ClientDetail(string employid,string p)
         {
             try
@@ -574,6 +606,9 @@ namespace BackStageSur
             }
         }
 
+        /// <summary>
+        /// 读取某个服务器所有已处理和未处理的错误
+        /// </summary>
         public DataSet SelSrvErr(int serverid, string p)
         {
             try
@@ -615,6 +650,9 @@ namespace BackStageSur
             }
         }
 
+        /// <summary>
+        /// 读取某个用户所有未处理的错误
+        /// </summary>
         public DataSet SelUhdErr( string p)
         {
             try
@@ -655,6 +693,9 @@ namespace BackStageSur
             }
         }
 
+        /// <summary>
+        /// 读取用户指定网卡的指定条数的最近错误
+        /// </summary>
         public DataSet SelNtbRctErr(int netboardid,int count,string p)
         {
             try
