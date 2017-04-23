@@ -1013,7 +1013,7 @@ namespace BackStageSur
         }
 
         /// <summary>
-        /// 在服务器上新增一块网卡(如果serverid不属于该client或网卡不属于该服务，会返回1)
+        /// 在网卡上新增一个服务(如果serverid不属于该client或网卡不属于该服务器，会返回1)
         /// </summary>
 
         public int InsSvc(int serverid, string servicetype, string servicename, int netboardid, int port, string clientid)
