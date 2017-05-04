@@ -19,4 +19,3 @@ D:\Documents\MyProjects\HostForTestDemo\HostForTest\obj\Debug\BackStageSur.Prope
 D:\Documents\MyProjects\HostForTestDemo\HostForTest\obj\Debug\BackStageSur.csproj.GenerateResource.Cache
 D:\Documents\MyProjects\HostForTestDemo\HostForTest\obj\Debug\BackStageSur.exe
 D:\Documents\MyProjects\HostForTestDemo\HostForTest\obj\Debug\BackStageSur.pdb
-D:\Documents\MyProjects\HostForTestDemo\HostForTest\obj\Debug\BackStageSur.csprojResolveAssemblyReference.cache
