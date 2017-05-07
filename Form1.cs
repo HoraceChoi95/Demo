@@ -9,6 +9,7 @@ using System.ServiceModel.Description;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Diagnostics;
 
 
 
@@ -28,6 +29,8 @@ namespace BackStageSur
         private ServiceHost host;
         static Socket server;
         bool read = true;
+        delegate void Stat();
+        Stat stat;
         private void button1_Click(object sender, EventArgs e)
         {
 
@@ -48,6 +51,8 @@ namespace BackStageSur
             Thread t = new Thread(ReciveMsg);//开启接收消息线程
             t.IsBackground = true;
             t.Start();
+            stat = new Stat(GetCpuMem);
+            stat.BeginInvoke(null, null);
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -115,7 +120,63 @@ namespace BackStageSur
                 this.textBox1.ScrollToCaret();
             }
         }
-        
+
+        public void GetCpuMem()
+        {
+            //获取当前进程对象
+            Process cur = Process.GetCurrentProcess();
+
+            PerformanceCounter curpcp = new PerformanceCounter("Process", "Working Set - Private", cur.ProcessName);
+            PerformanceCounter curpc = new PerformanceCounter("Process", "Working Set", cur.ProcessName);
+            PerformanceCounter curtime = new PerformanceCounter("Process", "% Processor Time", cur.ProcessName);
+
+            //上次记录CPU的时间
+            TimeSpan prevCpuTime = TimeSpan.Zero;
+            //Sleep的时间间隔
+            int interval = 1000;
+
+            PerformanceCounter totalcpu = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+
+            SystemInfo sys = new SystemInfo();
+            const int KB_DIV = 1024;
+            const int MB_DIV = 1024 * 1024;
+            const int GB_DIV = 1024 * 1024 * 1024;
+            while (true)
+            {
+                //第一种方法计算CPU使用率
+                //当前时间
+                TimeSpan curCpuTime = cur.TotalProcessorTime;
+                //计算
+                double value = (curCpuTime - prevCpuTime).TotalMilliseconds / interval / Environment.ProcessorCount * 100;
+                value = Math.Round(value, 2);
+                prevCpuTime = curCpuTime;
+                double wsm = cur.WorkingSet64 / MB_DIV;
+                wsm = Math.Round(wsm, 1);
+                double ws = curpc.NextValue() / MB_DIV;
+                ws = Math.Round(ws, 1);
+                double wsp = curpcp.NextValue() / MB_DIV;
+                wsp = Math.Round(wsp, 1);
+                double pt = curtime.NextValue() / Environment.ProcessorCount;
+                pt = Math.Round(pt, 1);
+                toolStripStatusLabel1.Text = "进程类工作集" + wsm + "MB,工作集" + ws + "MB,CPU使用率:" + value + "";
+                toolStripStatusLabel2.Text = "私有工作集" + wsp + "MB,CPU使用率:" + pt + "%";
+                //Console.WriteLine("{0}:{1}  {2:N}KB CPU使用率：{3}", cur.ProcessName, "工作集(进程类)", cur.WorkingSet64 / 1024, value);//这个工作集只是在一开始初始化，后期不变
+                //Console.WriteLine("{0}:{1}  {2:N}KB CPU使用率：{3}", cur.ProcessName, "工作集        ", curpc.NextValue() / 1024, value);//这个工作集是动态更新的
+                //                                                                                                                  //第二种计算CPU使用率的方法
+                //Console.WriteLine("{0}:{1}  {2:N}KB CPU使用率：{3}%", cur.ProcessName, "私有工作集    ", curpcp.NextValue() / 1024, curtime.NextValue() / Environment.ProcessorCount);
+                ////Thread.Sleep(interval);
+
+
+                double spma = (sys.PhysicalMemory - sys.MemoryAvailable) / (double)GB_DIV;
+                spma = Math.Round(spma, 2);
+                toolStripStatusLabel3.Text = "系统CPU使用率：" + Math.Round(sys.CpuLoad, 2) + "%";
+                toolStripStatusLabel4.Text = "系统内存使用大小：" + spma + "GB";
+                //第二种方法获取系统CPU和内存使用情况
+                //Console.Write("\r系统CPU使用率：{0}%，系统内存使用大小：{1}MB({2}GB)", sys.CpuLoad, (sys.PhysicalMemory - sys.MemoryAvailable) / MB_DIV, (sys.PhysicalMemory - sys.MemoryAvailable) / (double)GB_DIV);
+                Thread.Sleep(interval);
+            }
+        }
+
     }
 
 
@@ -143,14 +204,15 @@ namespace BackStageSur
                 string sqlstrlgn = "select passwd from sur.tb_login where clientid='" + p + "'";//选择clientid相对应的MD5
                 Npgsql.NpgsqlConnection myconnlgn = new Npgsql.NpgsqlConnection(connstr);
                 Npgsql.NpgsqlCommand mycommlgn = new Npgsql.NpgsqlCommand(sqlstrlgn, myconnlgn);
-
-                //Npgsql.NpgsqlDataAdapter myda = new Npgsql.NpgsqlDataAdapter(sqlstr, myconn);
+                Npgsql.NpgsqlDataAdapter myda = new Npgsql.NpgsqlDataAdapter(sqlstrlgn, myconnlgn);
+                DataTable dtlgn = new DataTable("pswd");
                 myconnlgn.Open();
-                //DataTable dt = new DataTable();
-                //DataSet ds = new DataSet();
-                //myda.Fill(dt);
-                //ds.Tables.Add(dt);
-                string comp = mycommlgn.ExecuteScalar().ToString().Trim();  // TODO:test  //MD5赋值给临时变量
+                myda.Fill(dtlgn);
+                string comp = null;
+                if (dtlgn.Rows.Count > 0)
+                {
+                    comp = mycommlgn.ExecuteScalar().ToString().Trim();    //MD5赋值给临时变量
+                }
                 myconnlgn.Close();
                 myconnlgn.Dispose();
                 if (comp == "" || comp == null)//判断是否有对应MD5
@@ -1196,7 +1258,7 @@ namespace BackStageSur
                 server.SendTo(Encoding.UTF8.GetBytes(DateTime.Now.ToString("yyyy-MM-dd HH：mm：ss：ffff") + "    " + cid + "用户更新" + svrname + "服务器信息，数据库写入失败"), point);
                 var error = new WCFError("Update", ne.Message.ToString());//实例化WCFError，将错误信息传入WCFError
                 throw new FaultException<WCFError>(error, error.Message);//抛出错误
-                return 1;
+                
             }
         }
         /// <summary>
